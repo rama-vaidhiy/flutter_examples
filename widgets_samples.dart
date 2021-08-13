@@ -36,6 +36,11 @@ class _CommonWidgetsHomeState extends State<CommonWidgetsHome> {
                 CustomButtonsWidget(),
                 Divider(),
                 CustomButtonBarWidget(),
+                Divider(),
+                //Adding a circle avatar to show how it looks
+                CircleAvatar(
+                  child: Image.network('https://picsum.photos/200'),
+                ),
               ],
             ),
           ),
