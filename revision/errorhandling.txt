@@ -1,0 +1,162 @@
+For a non-asynchronous operation we do the following to handle errors and exceptions.
+
+
+try{
+
+//Do "some action" here
+//That "some action" might throw an exception (checked {which you as a developer would be aware of} / unchecked {which you failed to expect from the "some action"})
+
+
+}catch(for every type of exception thrown){
+
+//Write code to handle each or all type of exception thrown
+
+}
+
+Now for an asynchronous operation, if you are using async await then you can still use the same method as above... because you are doing asynchronous operation where you wait for each operation to finish (thanks to await) and if there was an exception the catch section will handle that. 
+some_function async{
+    try {
+    //Do "some action" here
+    await where_you_call_something_else_to_do_the_action();
+    } catch (err) {
+    ////Write code to handle each or all type of error or exception thrown
+    }
+}
+
+Hopefully until here it makes sense. 
+
+Now comes the asynchronous operations using Future objects. 
+
+I am taking examples from https://api.dart.dev/stable/2.16.2/dart-async/Future-class.html
+
+Let us assume that a function foo() which is written as follows:
+
+Future<int> foo(){
+    return Future.value(1);
+}
+
+We have another function which takes in a value and prints it
+
+void bar(int v){
+  print(v);
+}
+
+Now we are calling foo in another function 
+void main() {
+  Future<int> asyncValue = Future(foo);
+  asyncValue.then((int value) {
+    //this will get the value 1 from foo()
+    //and passes this to bar and bar will print 1
+    print('am in then receiving the value from foo');
+    return bar(value);
+  }).catchError((e) {
+    print('am in catch error trying to handle the error');
+    print(e);
+  });
+}
+
+Now this is similar to your try..catch block we have at the beginning. 
+You have a then which is equivalent of your try and then if there is any issue in the then and it throws an error the catchError block will handle it. If you run that code, it will just print 1 and end because there is no error.
+
+In order to test it, let us change the foo() to return an error instead of a value. 
+
+Change the foo to the following:
+
+Future<int> foo() {
+  return Future.error("I am an error in Foo");
+}
+
+Now if you run the code, it will print 
+
+am in catch error trying to handle the error
+I am an error in Foo
+
+The catchError was called for any errors that happened as part of the  Future(foo) call. The then(...) wasn't called at all. 
+
+Now the question is, if there was an error in the code within the then(...) block what will happen? 
+
+To test that, let us change our bar() which is being called within the then(...) block. 
+
+Let us revert the foo() to return some value
+
+Future<int> foo() {
+  return Future.value(1);
+}
+
+and throw some exception as part of the bar() function. 
+
+void bar(int v) {
+  print(v);
+  throw Exception('just like that');
+}
+
+now the bar() is called within the then(...) of the Future. 
+
+void main() {
+  Future<int> asyncValue = Future(foo);
+  asyncValue.then((int value) {
+    //this will get the value 1 from foo()
+    //and passes this to bar and bar will print 1
+    print('am in then receiving the value from foo');
+    return bar(value);
+  }).catchError((e) {
+    print('am in catch error trying to handle the error');
+    print(e);
+  });
+}
+
+What will happen is, even in this case, the catchError will be called and the output would be 
+
+am in then receiving the value from foo
+1
+am in catch error trying to handle the error
+Exception: just like that
+
+So basically it will execute the then(...) function, and as part of it, it will call the bar() function which throws the error and that in turn is caught by the catchError(...) block.
+
+So catchError block will take care of errors from everything. 
+
+But what if you wanted to handle specific errors in the Future object without having to go to the generic catchError block?
+
+Let us revert to foo() returning an error instead of some value.
+
+Future<int> foo() {
+  return Future.error("I am an error in Foo");
+}
+
+I dont want to go to a generic catchError for this, but do something specific with the error message. I can do that in the then(...) block with onError(..) block. This is only for a specific then block (remember: there can be multiple then blocks for a Future).
+
+Now my main method is changed to handle the onError for my then(...) as follows.. read the comments to see where the onError block starts and ends and where the catchError block starts and ends. 
+
+
+void main() {
+  Future<int> asyncValue = Future(foo);
+  asyncValue.then((int value)
+  //my execution of the then block starts here where i deal with the value provided by the foo() Future function
+  {
+    //this will get the value 1 from foo()
+    //and passes this to bar and bar will print 1
+    print('am in then receiving the value from foo');
+    return bar(value);
+  }, 
+  // along with it I can also add an onError to the same then block. 
+  onError: (e) 
+  {
+    print('am in on Error');
+    print(e);
+  })//my then block ends here and I can attach the catchError to my future object after this.
+  .catchError((e) {
+    print('am in catch error trying to handle the error');
+    print(e);
+  });
+}
+
+Remember the catch error is associated with the future object whereas the onError is with the then function of the Future object. 
+Now if we run this code, I will get
+
+am in on Error
+I am an error in Foo
+
+Now if I didn't have the onError then it would automatically go to the catchError, but since there is a onError and the foo() function is throwing an error the onError(...) will take care of it. I can do the same for as many then(...) blocks I have for the Future object. 
+
+Hopefully this should clear up the basics of the error handling. 
